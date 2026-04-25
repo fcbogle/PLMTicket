@@ -32,6 +32,5 @@ frontend/dist/
 htmlcov/
 
 *.tsbuildinfo
-  frontend/vite.config.js
-  frontend/vite.config.d.ts
-
+frontend/vite.config.js
+frontend/vite.config.d.ts
