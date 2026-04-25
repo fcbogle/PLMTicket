@@ -32,6 +32,7 @@ const issueCategoryOptions = [
   "",
   "User Experience",
   "Training",
+  "Workshop Required",
   "Data Quality",
   "Access Request",
   "Configuration",
