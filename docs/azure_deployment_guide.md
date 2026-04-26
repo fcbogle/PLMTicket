@@ -341,23 +341,56 @@ az containerapp env storage set -g "$RG" -n "$APPENV" \
   --access-mode ReadWrite
 ```
 
-Then update the app template to mount the storage:
+Important deployment lesson:
+
+- patching nested `template.volumes[0]...` and `template.containers[0].volumeMounts[0]...` values directly through CLI `--set` was not reliable in practice
+- the successful approach was to export the Container App YAML, add the volume and mount there, then reapply it with `--yaml`
+
+Export the current app YAML:
 
 ```sh
-az containerapp update -g "$RG" -n "$APP" \
-  --set template.volumes[0].name=plmdata \
-  --set template.volumes[0].storageType=AzureFile \
-  --set template.volumes[0].storageName=plmdata \
-  --set template.containers[0].volumeMounts[0].volumeName=plmdata \
-  --set template.containers[0].volumeMounts[0].mountPath=/data \
-  --set-env-vars PLM_DATABASE_URL="sqlite:////data/plm_tickets.db"
+az containerapp show -g "$RG" -n "$APP" -o yaml > plm-ticket-api.yaml
+```
+
+Edit `plm-ticket-api.yaml` so the `template:` block contains:
+
+```yaml
+template:
+  containers:
+    - name: plm-ticket-api
+      image: acrplmticketfcbogle.azurecr.io/plm-ticket-manager:v1
+      env:
+        - name: PLM_DATABASE_URL
+          value: sqlite:////data/plm_tickets.db
+        - name: PLM_CORS_ALLOWED_ORIGINS
+          value: http://localhost:5173
+      volumeMounts:
+        - volumeName: plmdata
+          mountPath: /data
+  volumes:
+    - name: plmdata
+      storageType: AzureFile
+      storageName: plmdata
+```
+
+Then apply the YAML:
+
+```sh
+az containerapp update -g "$RG" -n "$APP" --yaml plm-ticket-api.yaml
+```
+
+Verify the mount is present:
+
+```sh
+az containerapp show -g "$RG" -n "$APP" --query "properties.template.volumes" -o json
+az containerapp show -g "$RG" -n "$APP" --query "properties.template.containers[0].volumeMounts" -o json
 ```
 
 Important:
 
 - the mounted database path must match the uploaded filename
 - the backend must use `sqlite:////data/plm_tickets.db`
-- if the app starts before the file is mounted correctly, it may create a new empty local SQLite file inside the container
+- if the app starts before the file is mounted correctly, it may fail with `sqlite3.OperationalError: unable to open database file`
 
 ## 10. Initial Frontend Deployment
 
@@ -458,6 +491,7 @@ Check:
 7. CSV upload works
 8. Ticket update works
 9. Excel export works
+10. `curl "https://$BACKEND_FQDN/health"` returns `{"status":"ok"}`
 
 ## 14. Backend-Only Update Procedure
 
@@ -539,14 +573,48 @@ Use this when backend and frontend both change.
 Use this when only backend code changes and the deployed database must be preserved.
 
 1. Build and push a new backend image tag.
-2. Update the Container App image.
-3. Do not replace the Azure File Share or the deployed `plm_tickets.db` unless you are intentionally promoting data.
-4. Validate that the mounted database is still being used.
+2. Export the current Container App YAML.
+3. Update the image reference in the YAML.
+4. Reapply the YAML so the existing volume mount remains intact.
+5. Do not replace the Azure File Share or the deployed `plm_tickets.db` unless you are intentionally promoting data.
+6. Validate that the mounted database is still being used.
 
 Important:
 
 - backend redeployments should not wipe the mounted SQLite data
 - the data lives in the Azure File Share, not in the container image
+
+Suggested sequence:
+
+```sh
+IMAGE_TAG="v2"
+
+docker buildx build --platform linux/amd64 \
+  -f backend/Dockerfile \
+  -t "$LOGIN_SERVER/$IMAGE_REPO:$IMAGE_TAG" \
+  --push .
+
+az containerapp show -g "$RG" -n "$APP" -o yaml > plm-ticket-api.yaml
+```
+
+Then update the YAML image line to:
+
+```yaml
+image: acrplmticketfcbogle.azurecr.io/plm-ticket-manager:v2
+```
+
+Apply it:
+
+```sh
+az containerapp update -g "$RG" -n "$APP" --yaml plm-ticket-api.yaml
+```
+
+Validate:
+
+```sh
+az containerapp revision list -g "$RG" -n "$APP" -o table
+curl "https://$BACKEND_FQDN/health"
+```
 
 ## 18. Promoting New Local Data After Initial Deployment
 
@@ -570,6 +638,8 @@ Do not casually overwrite the deployed database without confirming which copy is
 3. Be explicit about CORS origins
 4. Treat deployment data separately from application code
 5. Validate the real production URLs, not just local assumptions
+6. For Container Apps storage mounts, YAML-based updates were more reliable than nested CLI `--set` patching
+7. A backend `GET /` returning `404` is not a deployment failure in this app; `GET /health` is the correct health check
 
 ## 20. Recommended Next Engineering Work In This Repo
 
