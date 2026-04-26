@@ -24,7 +24,12 @@ type ImportSummary = {
   errors: string[];
 };
 
-const API_BASE = "http://localhost:8000";
+type DocLink = {
+  label: string;
+  path: string;
+};
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 const emptyFilters = { q: "", status: "", category: "" };
 const internalStatusOptions = ["", "New", "In Review", "Waiting On Vendor", "Blocked", "Closed"];
@@ -40,6 +45,11 @@ const issueCategoryOptions = [
   "Reporting",
   "Integration",
   "Other",
+];
+const docsLinks: DocLink[] = [
+  { label: "Application Design", path: "/docs/application_design.md" },
+  { label: "User Guide", path: "/docs/user_guide.md" },
+  { label: "Export Guide", path: "/docs/export_guide.md" },
 ];
 
 function formatDate(value: string | null) {
@@ -80,6 +90,128 @@ function categoryTone(value: string | null) {
   return "neutral";
 }
 
+function renderInlineMarkdown(text: string) {
+  const parts: Array<string | JSX.Element> = [];
+  const pattern = /`([^`]+)`|\*\*([^*]+)\*\*/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    if (match[1] !== undefined) {
+      parts.push(<code key={`code-${key++}`}>{match[1]}</code>);
+    } else if (match[2] !== undefined) {
+      parts.push(<strong key={`strong-${key++}`}>{match[2]}</strong>);
+    }
+    lastIndex = pattern.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts;
+}
+
+function renderMarkdownDocument(content: string) {
+  const lines = content.split("\n");
+  const blocks: JSX.Element[] = [];
+  let index = 0;
+  let key = 0;
+
+  while (index < lines.length) {
+    const line = lines[index];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      index += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith("```")) {
+      const codeLines: string[] = [];
+      index += 1;
+      while (index < lines.length && !lines[index].trim().startsWith("```")) {
+        codeLines.push(lines[index]);
+        index += 1;
+      }
+      index += 1;
+      blocks.push(
+        <pre className="markdown-code-block" key={`block-${key++}`}>
+          <code>{codeLines.join("\n")}</code>
+        </pre>,
+      );
+      continue;
+    }
+
+    if (trimmed.startsWith("#")) {
+      const level = Math.min(trimmed.match(/^#+/)?.[0].length ?? 1, 3);
+      const text = trimmed.replace(/^#+\s*/, "");
+      const heading = renderInlineMarkdown(text);
+      if (level === 1) {
+        blocks.push(<h1 key={`block-${key++}`}>{heading}</h1>);
+      } else if (level === 2) {
+        blocks.push(<h2 key={`block-${key++}`}>{heading}</h2>);
+      } else {
+        blocks.push(<h3 key={`block-${key++}`}>{heading}</h3>);
+      }
+      index += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith("- ")) {
+      const items: string[] = [];
+      while (index < lines.length && lines[index].trim().startsWith("- ")) {
+        items.push(lines[index].trim().slice(2));
+        index += 1;
+      }
+      blocks.push(
+        <ul key={`block-${key++}`}>
+          {items.map((item, itemIndex) => (
+            <li key={`item-${itemIndex}`}>{renderInlineMarkdown(item)}</li>
+          ))}
+        </ul>,
+      );
+      continue;
+    }
+
+    if (/^\d+\.\s/.test(trimmed)) {
+      const items: string[] = [];
+      while (index < lines.length && /^\d+\.\s/.test(lines[index].trim())) {
+        items.push(lines[index].trim().replace(/^\d+\.\s/, ""));
+        index += 1;
+      }
+      blocks.push(
+        <ol key={`block-${key++}`}>
+          {items.map((item, itemIndex) => (
+            <li key={`item-${itemIndex}`}>{renderInlineMarkdown(item)}</li>
+          ))}
+        </ol>,
+      );
+      continue;
+    }
+
+    const paragraphLines: string[] = [];
+    while (
+      index < lines.length &&
+      lines[index].trim() &&
+      !lines[index].trim().startsWith("#") &&
+      !lines[index].trim().startsWith("- ") &&
+      !/^\d+\.\s/.test(lines[index].trim()) &&
+      !lines[index].trim().startsWith("```")
+    ) {
+      paragraphLines.push(lines[index].trim());
+      index += 1;
+    }
+    blocks.push(<p key={`block-${key++}`}>{renderInlineMarkdown(paragraphLines.join(" "))}</p>);
+  }
+
+  return blocks;
+}
+
 function App() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -87,17 +219,21 @@ function App() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [docsOpen, setDocsOpen] = useState(false);
+  const [activeDoc, setActiveDoc] = useState<DocLink | null>(null);
+  const [docContent, setDocContent] = useState("");
+  const [docLoading, setDocLoading] = useState(false);
   const [message, setMessage] = useState<string>("");
   const [messageType, setMessageType] = useState<"success" | "error" | "info">("info");
   const openTickets = tickets.filter((ticket) => normalizeStatus(ticket.vendor_status) !== "closed").length;
   const enrichedTickets = tickets.filter((ticket) => ticket.issue_category || ticket.internal_status || ticket.comments).length;
 
-  async function loadTickets() {
+  async function loadTickets(nextFilters = filters) {
     setLoading(true);
     const params = new URLSearchParams();
-    if (filters.q) params.set("q", filters.q);
-    if (filters.status) params.set("status", filters.status);
-    if (filters.category) params.set("category", filters.category);
+    if (nextFilters.q) params.set("q", nextFilters.q);
+    if (nextFilters.status) params.set("status", nextFilters.status);
+    if (nextFilters.category) params.set("category", nextFilters.category);
 
     const response = await fetch(`${API_BASE}/tickets?${params.toString()}`);
     const data = (await response.json()) as Ticket[];
@@ -109,6 +245,40 @@ function App() {
   useEffect(() => {
     void loadTickets();
   }, []);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadTickets(filters);
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [filters]);
+
+  useEffect(() => {
+    if (!activeDoc) {
+      setDocContent("");
+      return;
+    }
+
+    let cancelled = false;
+    setDocLoading(true);
+    fetch(activeDoc.path)
+      .then((response) => response.text())
+      .then((text) => {
+        if (!cancelled) {
+          setDocContent(text);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setDocLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeDoc]);
 
   async function handleUpload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -203,15 +373,39 @@ function App() {
           </div>
           <span className="brand-kicker">PLM Support Operations</span>
         </div>
-        <a className="export-link" href={`${API_BASE}/exports/excel`}>
-          Export Excel
-        </a>
+        <div className="header-actions">
+          <div className="docs-menu">
+            <button type="button" className="docs-button" onClick={() => setDocsOpen((current) => !current)}>
+              Docs
+            </button>
+            {docsOpen ? (
+              <div className="docs-panel">
+                {docsLinks.map((doc) => (
+                  <button
+                    key={doc.path}
+                    type="button"
+                    className="docs-link-button"
+                    onClick={() => {
+                      setActiveDoc(doc);
+                      setDocsOpen(false);
+                    }}
+                  >
+                    {doc.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <a className="export-link" href={`${API_BASE}/exports/excel`}>
+            Export Excel
+          </a>
+        </div>
       </header>
 
       <section className="hero">
         <div className="hero-copy-block">
           <p className="eyebrow">Vendor Intake And Internal Review</p>
-          <h1>Bring external PLM tickets into a branded internal review flow.</h1>
+          <h1>PLM Ticket Enhancement & Reporting Application</h1>
           <p className="lede">
             Upload the vendor CSV, preserve internal categorisation and notes, and export a clean workbook for management
             review.
@@ -244,31 +438,40 @@ function App() {
             Upload CSV
           </button>
         </form>
-        <form
-          className="filters"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void loadTickets();
-          }}
-        >
-          <input name="q" placeholder="Search ticket or subject" value={filters.q} onChange={handleFilterChange} />
-          <input name="status" placeholder="Filter status" value={filters.status} onChange={handleFilterChange} />
-          <input name="category" placeholder="Filter category" value={filters.category} onChange={handleFilterChange} />
-          <button type="submit" disabled={loading}>
-            Apply
-          </button>
+        <div className="filters">
+          <input
+            name="q"
+            placeholder="Search ticket or subject"
+            value={filters.q}
+            onChange={handleFilterChange}
+            autoComplete="off"
+          />
+          <input
+            name="status"
+            placeholder="Filter status"
+            value={filters.status}
+            onChange={handleFilterChange}
+            autoComplete="off"
+          />
+          <input
+            name="category"
+            placeholder="Filter category"
+            value={filters.category}
+            onChange={handleFilterChange}
+            autoComplete="off"
+          />
           <button
             type="button"
             className="secondary-button"
             onClick={() => {
               setFilters(emptyFilters);
-              setTimeout(() => void loadTickets(), 0);
+              void loadTickets(emptyFilters);
             }}
             disabled={loading}
           >
             Clear
           </button>
-        </form>
+        </div>
         {message ? <p className={`message message-${messageType}`}>{message}</p> : null}
       </section>
 
@@ -418,6 +621,21 @@ function App() {
           )}
         </section>
       </main>
+      {activeDoc ? (
+        <div className="docs-overlay" onClick={() => setActiveDoc(null)}>
+          <section className="docs-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="docs-modal-header">
+              <h2>{activeDoc.label}</h2>
+              <button type="button" className="secondary-button" onClick={() => setActiveDoc(null)}>
+                Close
+              </button>
+            </div>
+            <div className="docs-content">
+              {docLoading ? <p>Loading document...</p> : renderMarkdownDocument(docContent)}
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,0 +1,265 @@
+id: /subscriptions/53c5b118-9386-4820-98b1-142764fda316/resourceGroups/rg-plm-ticket-manager/providers/Microsoft.App/containerapps/plm-ticket-api
+identity:
+  type: None
+location: UK South
+name: plm-ticket-api
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    dapr: null
+    identitySettings: []
+    ingress:
+      additionalPortMappings: null
+      allowInsecure: false
+      clientCertificateMode: null
+      corsPolicy: null
+      customDomains: null
+      exposedPort: 0
+      external: true
+      fqdn: plm-ticket-api.purplecoast-0456408b.uksouth.azurecontainerapps.io
+      ipSecurityRestrictions: null
+      stickySessions: null
+      targetPort: 8000
+      targetPortHttpScheme: null
+      traffic:
+      - latestRevision: true
+        weight: 100
+      transport: Auto
+    maxInactiveRevisions: 100
+    registries:
+    - identity: ''
+      passwordSecretRef: acrplmticketfcbogleazurecrio-acrplmticketfcbogle
+      server: acrplmticketfcbogle.azurecr.io
+      username: acrplmticketfcbogle
+    revisionTransitionThreshold: null
+    runtime: null
+    secrets:
+    - name: acrplmticketfcbogleazurecrio-acrplmticketfcbogle
+    service: null
+    targetLabel: ''
+  customDomainVerificationId: 823D767F1030836BACEAB6A42EFDBBA5013E324F6CFE1617B39437A4FC2EED3A
+  delegatedIdentities: []
+  environmentId: /subscriptions/53c5b118-9386-4820-98b1-142764fda316/resourceGroups/rg-plm-ticket-manager/providers/Microsoft.App/managedEnvironments/aca-env-plm-ticket
+  eventStreamEndpoint: https://uksouth.azurecontainerapps.dev/subscriptions/53c5b118-9386-4820-98b1-142764fda316/resourceGroups/rg-plm-ticket-manager/containerApps/plm-ticket-api/eventstream
+  latestReadyRevisionName: plm-ticket-api--bwktrvp
+  latestRevisionFqdn: plm-ticket-api--bwktrvp.purplecoast-0456408b.uksouth.azurecontainerapps.io
+  latestRevisionName: plm-ticket-api--bwktrvp
+  managedEnvironmentId: /subscriptions/53c5b118-9386-4820-98b1-142764fda316/resourceGroups/rg-plm-ticket-manager/providers/Microsoft.App/managedEnvironments/aca-env-plm-ticket
+  outboundIpAddresses:
+  - 20.90.238.99
+  - 20.90.239.180
+  - 20.108.130.227
+  - 20.108.130.191
+  - 85.210.25.6
+  - 85.210.24.221
+  - 4.158.34.249
+  - 20.162.138.167
+  - 4.158.113.223
+  - 4.159.3.89
+  - 85.210.163.187
+  - 74.177.240.109
+  - 172.166.80.179
+  - 131.145.9.241
+  - 85.210.166.17
+  - 85.210.48.136
+  - 74.177.120.102
+  - 131.145.48.93
+  - 85.210.163.208
+  - 74.177.193.62
+  - 51.142.67.19
+  - 20.254.83.139
+  - 131.145.82.22
+  - 20.254.83.138
+  - 4.158.232.14
+  - 172.166.87.38
+  - 74.177.226.250
+  - 51.143.239.87
+  - 20.26.108.244
+  - 20.26.108.252
+  - 131.145.77.75
+  - 4.250.91.55
+  - 145.133.122.30
+  - 4.158.222.211
+  - 20.26.144.50
+  - 20.26.67.125
+  - 20.26.246.111
+  - 20.26.246.35
+  - 172.187.108.20
+  - 20.26.250.81
+  - 20.26.250.99
+  - 131.145.83.80
+  - 74.177.194.2
+  - 172.187.108.17
+  - 74.177.194.1
+  - 4.250.253.31
+  - 20.108.136.221
+  - 4.158.53.230
+  - 131.145.77.65
+  - 4.159.26.200
+  - 4.158.168.140
+  - 131.145.48.41
+  - 131.145.48.38
+  - 4.159.26.91
+  - 4.158.141.66
+  - 145.133.122.37
+  - 74.177.194.6
+  - 85.210.188.76
+  - 4.250.250.188
+  - 20.49.128.191
+  - 40.81.157.22
+  - 20.26.245.140
+  - 4.250.114.255
+  - 20.26.250.83
+  - 4.158.140.21
+  - 4.159.26.106
+  - 51.143.239.94
+  - 85.210.188.61
+  - 51.143.239.98
+  - 20.26.250.15
+  - 74.177.208.14
+  - 145.133.120.159
+  - 4.250.114.142
+  - 20.49.133.152
+  - 20.26.68.11
+  - 172.166.14.0
+  - 4.250.8.103
+  - 4.158.168.143
+  - 20.26.66.214
+  - 172.166.13.240
+  - 20.108.216.9
+  - 20.108.217.125
+  - 20.108.124.221
+  - 20.108.125.221
+  - 4.159.25.18
+  - 4.158.92.46
+  - 20.162.145.125
+  - 4.158.143.149
+  - 4.158.143.92
+  - 4.250.234.44
+  - 74.177.201.70
+  - 131.145.91.209
+  - 4.158.91.74
+  - 4.158.89.64
+  - 131.145.40.6
+  - 74.177.198.189
+  - 85.210.223.160
+  - 74.177.245.93
+  - 74.177.198.181
+  - 131.145.77.209
+  - 74.177.162.123
+  - 20.26.109.122
+  - 131.145.124.57
+  - 85.210.222.64
+  - 20.26.109.180
+  - 74.177.141.127
+  - 85.210.223.56
+  - 74.177.245.142
+  - 131.145.83.126
+  - 131.145.99.107
+  - 172.187.108.24
+  - 20.254.72.95
+  - 4.250.253.34
+  - 20.26.247.175
+  - 20.117.218.107
+  - 4.159.112.109
+  - 20.254.72.120
+  - 172.187.108.49
+  - 20.108.98.127
+  - 85.210.186.119
+  - 20.90.236.2
+  - 4.158.31.99
+  - 172.166.14.46
+  - 20.117.217.11
+  - 4.250.253.165
+  - 20.108.96.53
+  - 131.145.22.42
+  - 131.145.77.79
+  - 85.210.217.254
+  - 74.177.176.92
+  - 74.177.176.39
+  - 131.145.123.38
+  - 131.145.27.164
+  - 20.108.98.126
+  - 4.158.31.97
+  - 4.159.112.99
+  - 4.250.91.246
+  - 74.177.208.61
+  - 4.158.41.114
+  - 74.177.240.120
+  - 20.108.98.136
+  - 20.117.217.10
+  - 4.159.112.15
+  - 4.159.112.112
+  - 74.177.246.192
+  - 4.250.116.12
+  - 4.158.43.131
+  - 172.166.14.41
+  - 74.177.178.113
+  - 145.133.58.244
+  - 4.158.31.84
+  - 172.187.108.29
+  - 131.145.77.80
+  - 20.26.168.193
+  - 74.177.194.10
+  - 4.158.152.6
+  - 172.166.14.14
+  - 4.250.91.148
+  - 4.250.91.170
+  - 4.250.91.188
+  - 131.145.51.60
+  patchingMode: Automatic
+  provisioningState: Succeeded
+  runningStatus: Running
+  template:
+    containers:
+    - env:
+      - name: PLM_DATABASE_URL
+        value: sqlite:////data/plm_tickets.db
+      - name: PLM_CORS_ALLOWED_ORIGINS
+        value: http://localhost:5173
+      image: acrplmticketfcbogle.azurecr.io/plm-ticket-manager:v1
+      imageType: ContainerImage
+      name: plm-ticket-api
+      resources:
+        cpu: 0.5
+        ephemeralStorage: 2Gi
+        memory: 1Gi
+    customMetricsSettings: null
+    initContainers: null
+    revisionSuffix: ''
+    scale:
+      cooldownPeriod: 300
+      maxReplicas: 10
+      minReplicas: null
+      pollingInterval: 30
+      rules: null
+    serviceBinds: null
+    terminationGracePeriodSeconds: null
+    volumes: null
+  workloadProfileName: Consumption
+resourceGroup: rg-plm-ticket-manager
+systemData:
+  createdAt: '2026-04-26T11:23:52.2358123'
+  createdBy: fcbogle@gmail.com
+  createdByType: User
+  lastModifiedAt: '2026-04-26T11:34:47.461865'
+  lastModifiedBy: fcbogle@gmail.com
+  lastModifiedByType: User
+type: Microsoft.App/containerApps
+template:
+    containers:
+      - name: plm-ticket-api
+        image: <leave current image value as-is>
+        env:
+          - name: PLM_DATABASE_URL
+            value: sqlite:////data/plm_tickets.db
+          - name: PLM_CORS_ALLOWED_ORIGINS
+            value: http://localhost:5173
+        volumeMounts:
+          - volumeName: plmdata
+            mountPath: /data
+    volumes:
+      - name: plmdata
+        storageType: AzureFile
+        storageName: plmdata
+

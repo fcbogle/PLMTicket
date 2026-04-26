@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from collections import Counter
 from io import BytesIO
 from pathlib import Path
 
 from openpyxl import Workbook
+from openpyxl.chart import BarChart, PieChart, Reference
+from openpyxl.chart.label import DataLabelList
 from openpyxl.drawing.image import Image
 from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
 from openpyxl.drawing.xdr import XDRPositiveSize2D
@@ -125,6 +128,202 @@ def write_sheet(workbook: Workbook, title: str, tickets: list[Ticket]) -> None:
                 cell.number_format = "DD/MM/YYYY HH:MM"
 
 
+def write_explanation_block(
+    sheet,
+    start_row: int,
+    start_col: int,
+    summary: str,
+    source: str,
+    message: str,
+) -> int:
+    entries = [
+        ("Summary", summary),
+        ("Source", source),
+        ("Message", message),
+    ]
+    current_row = start_row
+    for label, text in entries:
+        label_cell = sheet.cell(row=current_row, column=start_col, value=f"{label}:")
+        label_cell.font = Font(bold=True)
+        sheet.cell(row=current_row, column=start_col + 1, value=text)
+        current_row += 1
+    return current_row + 1
+
+
+def write_metric_card(sheet, row: int, column: int, title: str, value: object) -> None:
+    title_cell = sheet.cell(row=row, column=column, value=title)
+    title_cell.font = Font(bold=True, color="FFFFFF")
+    title_cell.fill = PatternFill(fill_type="solid", fgColor=BRAND_PRIMARY)
+    title_cell.alignment = Alignment(horizontal="center")
+
+    value_cell = sheet.cell(row=row + 1, column=column, value=value)
+    value_cell.font = Font(bold=True, size=16)
+    value_cell.fill = PatternFill(fill_type="solid", fgColor=BRAND_HEADER_BG)
+    value_cell.alignment = Alignment(horizontal="center")
+
+
+def write_summary_table(sheet, start_row: int, start_col: int, title: str, headers: list[str], rows: list[tuple[object, ...]]) -> tuple[int, int]:
+    title_cell = sheet.cell(row=start_row, column=start_col, value=title)
+    title_cell.font = Font(bold=True, size=12)
+
+    header_row = start_row + 1
+    for offset, header in enumerate(headers):
+        cell = sheet.cell(row=header_row, column=start_col + offset, value=header)
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill(fill_type="solid", fgColor=BRAND_HEADER_BG)
+
+    for row_offset, row_values in enumerate(rows, start=1):
+        for col_offset, value in enumerate(row_values):
+            sheet.cell(row=header_row + row_offset, column=start_col + col_offset, value=value)
+
+    return header_row, len(rows)
+
+
+def add_pie_chart(sheet, anchor_cell: str, start_col: int, header_row: int, data_rows: int, title: str) -> None:
+    if data_rows < 1:
+        return
+
+    chart = PieChart()
+    chart.title = title
+    chart.style = 10
+    chart.height = 7
+    chart.width = 10
+
+    labels = Reference(sheet, min_col=start_col, min_row=header_row + 1, max_row=header_row + data_rows)
+    data = Reference(sheet, min_col=start_col + 1, min_row=header_row, max_row=header_row + data_rows)
+    chart.add_data(data, titles_from_data=True)
+    chart.set_categories(labels)
+    chart.dataLabels = DataLabelList()
+    chart.dataLabels.showPercent = True
+    chart.dataLabels.showVal = True
+    sheet.add_chart(chart, anchor_cell)
+
+
+def add_bar_chart(
+    sheet,
+    anchor_cell: str,
+    start_col: int,
+    header_row: int,
+    data_rows: int,
+    title: str,
+    x_axis_title: str,
+    y_axis_title: str,
+) -> None:
+    if data_rows < 1:
+        return
+
+    chart = BarChart()
+    chart.type = "col"
+    chart.style = 10
+    chart.height = 7
+    chart.width = 10
+    chart.title = title
+    chart.x_axis.title = x_axis_title
+    chart.y_axis.title = y_axis_title
+    chart.legend = None
+    chart.dataLabels = DataLabelList()
+    chart.dataLabels.showVal = True
+
+    labels = Reference(sheet, min_col=start_col, min_row=header_row + 1, max_row=header_row + data_rows)
+    data = Reference(sheet, min_col=start_col + 1, min_row=header_row, max_row=header_row + data_rows)
+    chart.add_data(data, titles_from_data=True)
+    chart.set_categories(labels)
+    sheet.add_chart(chart, anchor_cell)
+
+
+def write_summary_sheet(workbook: Workbook, tickets: list[Ticket]) -> None:
+    sheet = workbook.create_sheet("Summary & Reporting")
+    add_sheet_branding(sheet, "Summary & Reporting")
+    sheet.freeze_panes = "A4"
+    sheet.sheet_view.showGridLines = False
+
+    total_tickets = len(tickets)
+    open_tickets = sum(1 for ticket in tickets if is_open_ticket(ticket))
+    workshop_tickets = sum(1 for ticket in tickets if is_workshop_required(ticket))
+    enriched_tickets = sum(1 for ticket in tickets if ticket.issue_category or ticket.internal_status or ticket.comments)
+
+    write_metric_card(sheet, 4, 1, "Total Tickets", total_tickets)
+    write_metric_card(sheet, 4, 3, "Open Tickets", open_tickets)
+    write_metric_card(sheet, 4, 5, "Workshop Required", workshop_tickets)
+    write_metric_card(sheet, 4, 7, "Enriched Tickets", enriched_tickets)
+
+    write_explanation_block(
+        sheet,
+        start_row=7,
+        start_col=1,
+        summary="Overview of current ticket distribution and enrichment coverage.",
+        source="All records currently stored in the PLM Ticket Manager database.",
+        message="Use this sheet as the management summary tab before moving into detailed ticket tabs.",
+    )
+
+    vendor_status_counts = Counter((ticket.vendor_status or "Unspecified").strip() or "Unspecified" for ticket in tickets)
+    issue_category_counts = Counter((ticket.issue_category or "Unspecified").strip() or "Unspecified" for ticket in tickets)
+    owner_counts = Counter((ticket.internal_owner or "Unassigned").strip() or "Unassigned" for ticket in tickets)
+
+    top_issue_rows = sorted(issue_category_counts.items(), key=lambda item: (-item[1], item[0]))
+    top_owner_rows = sorted(owner_counts.items(), key=lambda item: (-item[1], item[0]))[:8]
+    status_rows = sorted(vendor_status_counts.items(), key=lambda item: (-item[1], item[0]))
+
+    header_row, data_rows = write_summary_table(
+        sheet,
+        start_row=12,
+        start_col=8,
+        title="Vendor Status Breakdown",
+        headers=["Status", "Count"],
+        rows=[(status, count) for status, count in status_rows],
+    )
+    add_pie_chart(sheet, "A12", 8, header_row, data_rows, "Vendor Status Distribution")
+    write_explanation_block(
+        sheet,
+        start_row=21,
+        start_col=1,
+        summary="Shows how the vendor currently classifies ticket state.",
+        source="`vendor_status` values from imported supplier records.",
+        message="Use this to monitor open vs closed workload and watch for tickets waiting on external action.",
+    )
+
+    header_row, data_rows = write_summary_table(
+        sheet,
+        start_row=30,
+        start_col=8,
+        title="Internal Issue Categories",
+        headers=["Issue Category", "Count"],
+        rows=[(category, count) for category, count in top_issue_rows],
+    )
+    add_bar_chart(sheet, "A30", 8, header_row, data_rows, "Internal Issue Categories", "Issue Category", "Tickets")
+    write_explanation_block(
+        sheet,
+        start_row=39,
+        start_col=1,
+        summary="Summarises how tickets are being classified internally.",
+        source="`issue_category` values entered by Blatchford users.",
+        message="This supports trend reporting and highlights workshop demand through the `Workshop Required` category.",
+    )
+
+    header_row, data_rows = write_summary_table(
+        sheet,
+        start_row=48,
+        start_col=8,
+        title="Internal Owner Allocation",
+        headers=["Internal Owner", "Count"],
+        rows=[(owner, count) for owner, count in top_owner_rows],
+    )
+    add_bar_chart(sheet, "A48", 8, header_row, data_rows, "Internal Owner Allocation", "Internal Owner", "Tickets")
+    write_explanation_block(
+        sheet,
+        start_row=57,
+        start_col=1,
+        summary="Shows which internal owners are attached to the most tickets.",
+        source="`internal_owner` values entered in the ticket detail form.",
+        message="Use this view to balance workload and identify records still waiting for internal ownership.",
+    )
+
+    for column in range(1, 8):
+        sheet.column_dimensions[get_column_letter(column)].width = 22
+    for column in range(8, 10):
+        sheet.column_dimensions[get_column_letter(column)].width = 20
+
+
 def build_excel_report(db: Session) -> bytes:
     tickets = db.query(Ticket).order_by(Ticket.vendor_created_date.desc()).all()
 
@@ -134,6 +333,8 @@ def build_excel_report(db: Session) -> bytes:
     write_sheet(workbook, "All Tickets", tickets)
     write_sheet(workbook, "Open Tickets", [ticket for ticket in tickets if is_open_ticket(ticket)])
     write_sheet(workbook, "Workshop Required", [ticket for ticket in tickets if is_workshop_required(ticket)])
+    write_summary_sheet(workbook, tickets)
+    workbook.active = 0
 
     output = BytesIO()
     workbook.save(output)

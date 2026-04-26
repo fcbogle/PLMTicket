@@ -1,4 +1,5 @@
 from io import BytesIO
+import os
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,9 +18,15 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="PLM Ticket Manager")
 
+
+def get_cors_origins() -> list[str]:
+    raw_value = os.getenv("PLM_CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+    origins = [origin.strip() for origin in raw_value.split(",") if origin.strip()]
+    return origins or ["http://localhost:5173"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

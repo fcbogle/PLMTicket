@@ -1,0 +1,13 @@
+.git
+.gitignore
+.idea
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+frontend/node_modules
+frontend/dist
+exports
+backend/plm_tickets.db
