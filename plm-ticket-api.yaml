@@ -249,7 +249,7 @@ type: Microsoft.App/containerApps
 template:
     containers:
       - name: plm-ticket-api
-        image: <leave current image value as-is>
+        image: acrplmticketfcbogle.azurecr.io/plm-ticket-manager:v1
         env:
           - name: PLM_DATABASE_URL
             value: sqlite:////data/plm_tickets.db
@@ -262,4 +262,5 @@ template:
       - name: plmdata
         storageType: AzureFile
         storageName: plmdata
+
 
