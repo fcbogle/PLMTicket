@@ -38,7 +38,21 @@ EXPORT_COLUMNS = [
 
 BRAND_PRIMARY = "002A3A"
 BRAND_HEADER_BG = "EAF2F4"
-LOGO_PATH = Path(__file__).resolve().parents[3] / "frontend" / "public" / "blatchford-mark.jpeg"
+
+
+def resolve_logo_path() -> Path | None:
+    current_file = Path(__file__).resolve()
+    candidates = [
+        current_file.parents[3] / "frontend" / "public" / "blatchford-mark.jpeg",
+        current_file.parents[2] / "frontend" / "public" / "blatchford-mark.jpeg",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+LOGO_PATH = resolve_logo_path()
 
 
 def is_open_ticket(ticket: Ticket) -> bool:
@@ -75,7 +89,7 @@ def add_sheet_branding(sheet, title: str) -> None:
     sheet.column_dimensions["A"].width = 4
     sheet.column_dimensions["B"].width = 16
 
-    if LOGO_PATH.exists():
+    if LOGO_PATH is not None:
         logo = Image(str(LOGO_PATH))
         logo.width = 76
         logo.height = 76

@@ -41,9 +41,9 @@ properties:
   delegatedIdentities: []
   environmentId: /subscriptions/53c5b118-9386-4820-98b1-142764fda316/resourceGroups/rg-plm-ticket-manager/providers/Microsoft.App/managedEnvironments/aca-env-plm-ticket
   eventStreamEndpoint: https://uksouth.azurecontainerapps.dev/subscriptions/53c5b118-9386-4820-98b1-142764fda316/resourceGroups/rg-plm-ticket-manager/containerApps/plm-ticket-api/eventstream
-  latestReadyRevisionName: plm-ticket-api--bwktrvp
-  latestRevisionFqdn: plm-ticket-api--bwktrvp.purplecoast-0456408b.uksouth.azurecontainerapps.io
-  latestRevisionName: plm-ticket-api--bwktrvp
+  latestReadyRevisionName: plm-ticket-api--0000003
+  latestRevisionFqdn: plm-ticket-api--0000003.purplecoast-0456408b.uksouth.azurecontainerapps.io
+  latestRevisionName: plm-ticket-api--0000003
   managedEnvironmentId: /subscriptions/53c5b118-9386-4820-98b1-142764fda316/resourceGroups/rg-plm-ticket-manager/providers/Microsoft.App/managedEnvironments/aca-env-plm-ticket
   outboundIpAddresses:
   - 20.90.238.99
@@ -216,14 +216,17 @@ properties:
       - name: PLM_DATABASE_URL
         value: sqlite:////data/plm_tickets.db
       - name: PLM_CORS_ALLOWED_ORIGINS
-        value: http://localhost:5173
-      image: acrplmticketfcbogle.azurecr.io/plm-ticket-manager:v1
+        value: https://red-hill-069595c03.7.azurestaticapps.net,http://localhost:5173
+      image: acrplmticketfcbogle.azurecr.io/plm-ticket-manager:v2
       imageType: ContainerImage
       name: plm-ticket-api
       resources:
         cpu: 0.5
         ephemeralStorage: 2Gi
         memory: 1Gi
+      volumeMounts:
+      - mountPath: /data
+        volumeName: plmdata
     customMetricsSettings: null
     initContainers: null
     revisionSuffix: ''
@@ -235,33 +238,17 @@ properties:
       rules: null
     serviceBinds: null
     terminationGracePeriodSeconds: null
-    volumes: null
+    volumes:
+    - name: plmdata
+      storageName: plmdata
+      storageType: AzureFile
   workloadProfileName: Consumption
 resourceGroup: rg-plm-ticket-manager
 systemData:
   createdAt: '2026-04-26T11:23:52.2358123'
   createdBy: fcbogle@gmail.com
   createdByType: User
-  lastModifiedAt: '2026-04-26T11:34:47.461865'
+  lastModifiedAt: '2026-04-26T14:33:03.2949996'
   lastModifiedBy: fcbogle@gmail.com
   lastModifiedByType: User
 type: Microsoft.App/containerApps
-template:
-    containers:
-      - name: plm-ticket-api
-        image: acrplmticketfcbogle.azurecr.io/plm-ticket-manager:v1
-        env:
-          - name: PLM_DATABASE_URL
-            value: sqlite:////data/plm_tickets.db
-          - name: PLM_CORS_ALLOWED_ORIGINS
-            value: https://red-hill-069595c03.7.azurestaticapps.net,http://localhost:5173
-        volumeMounts:
-          - volumeName: plmdata
-            mountPath: /data
-    volumes:
-      - name: plmdata
-        storageType: AzureFile
-        storageName: plmdata
-
-
-
