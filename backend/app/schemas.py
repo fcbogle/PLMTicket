@@ -27,6 +27,7 @@ class TicketBase(BaseModel):
     vendor_issue_category: str | None = None
     internal_status: str | None = None
     internal_owner: str | None = None
+    ticket_type: str | None = None
     issue_category: str | None = None
     root_cause: str | None = None
     comments: str | None = None
@@ -41,6 +42,7 @@ class TicketRead(TicketBase):
 class TicketUpdate(BaseModel):
     internal_status: str | None = None
     internal_owner: str | None = None
+    ticket_type: str | None = None
     issue_category: str | None = None
     root_cause: str | None = None
     comments: str | None = None

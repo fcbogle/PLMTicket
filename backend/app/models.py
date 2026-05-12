@@ -33,6 +33,7 @@ class Ticket(Base):
 
     internal_status: Mapped[str | None] = mapped_column(String(100))
     internal_owner: Mapped[str | None] = mapped_column(String(255))
+    ticket_type: Mapped[str | None] = mapped_column(String(100))
     issue_category: Mapped[str | None] = mapped_column(String(255))
     root_cause: Mapped[str | None] = mapped_column(String(255))
     comments: Mapped[str | None] = mapped_column(Text)

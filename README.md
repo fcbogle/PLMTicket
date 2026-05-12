@@ -19,7 +19,7 @@ Frontend:
 
 Defaults:
 
-- local backend database: `sqlite:///./plm_tickets.db`
+- local backend database: `sqlite:////absolute/path/to/repo/backend/plm_tickets.db`
 - local frontend API base URL: `http://localhost:8000`
 
 ## Backend
@@ -35,7 +35,7 @@ API base URL: `http://localhost:8000`
 Example backend environment:
 
 ```bash
-PLM_DATABASE_URL=sqlite:///./plm_tickets.db
+PLM_DATABASE_URL=sqlite:////absolute/path/to/repo/backend/plm_tickets.db
 PLM_CORS_ALLOWED_ORIGINS=http://localhost:5173
 ```
 

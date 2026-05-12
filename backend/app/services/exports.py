@@ -24,6 +24,7 @@ EXPORT_COLUMNS = [
     ("Vendor Status", "vendor_status"),
     ("Internal Status", "internal_status"),
     ("Internal Owner", "internal_owner"),
+    ("Ticket Type", "ticket_type"),
     ("Vendor Issue Category", "vendor_issue_category"),
     ("Issue Category", "issue_category"),
     ("Root Cause", "root_cause"),
@@ -254,7 +255,9 @@ def write_summary_sheet(workbook: Workbook, tickets: list[Ticket]) -> None:
     total_tickets = len(tickets)
     open_tickets = sum(1 for ticket in tickets if is_open_ticket(ticket))
     workshop_tickets = sum(1 for ticket in tickets if is_workshop_required(ticket))
-    enriched_tickets = sum(1 for ticket in tickets if ticket.issue_category or ticket.internal_status or ticket.comments)
+    enriched_tickets = sum(
+        1 for ticket in tickets if ticket.issue_category or ticket.internal_status or ticket.ticket_type or ticket.comments
+    )
 
     write_metric_card(sheet, 4, 1, "Total Tickets", total_tickets)
     write_metric_card(sheet, 4, 3, "Open Tickets", open_tickets)
@@ -273,10 +276,12 @@ def write_summary_sheet(workbook: Workbook, tickets: list[Ticket]) -> None:
     vendor_status_counts = Counter((ticket.vendor_status or "Unspecified").strip() or "Unspecified" for ticket in tickets)
     issue_category_counts = Counter((ticket.issue_category or "Unspecified").strip() or "Unspecified" for ticket in tickets)
     owner_counts = Counter((ticket.internal_owner or "Unassigned").strip() or "Unassigned" for ticket in tickets)
+    ticket_type_counts = Counter((ticket.ticket_type or "Unspecified").strip() or "Unspecified" for ticket in tickets)
 
     top_issue_rows = sorted(issue_category_counts.items(), key=lambda item: (-item[1], item[0]))
     top_owner_rows = sorted(owner_counts.items(), key=lambda item: (-item[1], item[0]))[:8]
     status_rows = sorted(vendor_status_counts.items(), key=lambda item: (-item[1], item[0]))
+    ticket_type_rows = sorted(ticket_type_counts.items(), key=lambda item: (-item[1], item[0]))
 
     header_row, data_rows = write_summary_table(
         sheet,
@@ -318,14 +323,32 @@ def write_summary_sheet(workbook: Workbook, tickets: list[Ticket]) -> None:
         sheet,
         start_row=48,
         start_col=8,
+        title="Ticket Type Breakdown",
+        headers=["Ticket Type", "Count"],
+        rows=[(ticket_type, count) for ticket_type, count in ticket_type_rows],
+    )
+    add_bar_chart(sheet, "A48", 8, header_row, data_rows, "Ticket Type Breakdown", "Ticket Type", "Tickets")
+    write_explanation_block(
+        sheet,
+        start_row=57,
+        start_col=1,
+        summary="Shows whether tickets are being classified as support work or incremental improvement work.",
+        source="`ticket_type` values entered by Blatchford users.",
+        message="Use this view to distinguish true support demand from enhancement-oriented requests.",
+    )
+
+    header_row, data_rows = write_summary_table(
+        sheet,
+        start_row=66,
+        start_col=8,
         title="Internal Owner Allocation",
         headers=["Internal Owner", "Count"],
         rows=[(owner, count) for owner, count in top_owner_rows],
     )
-    add_bar_chart(sheet, "A48", 8, header_row, data_rows, "Internal Owner Allocation", "Internal Owner", "Tickets")
+    add_bar_chart(sheet, "A66", 8, header_row, data_rows, "Internal Owner Allocation", "Internal Owner", "Tickets")
     write_explanation_block(
         sheet,
-        start_row=57,
+        start_row=75,
         start_col=1,
         summary="Shows which internal owners are attached to the most tickets.",
         source="`internal_owner` values entered in the ticket detail form.",

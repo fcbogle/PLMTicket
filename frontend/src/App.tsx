@@ -12,6 +12,7 @@ type Ticket = {
   vendor_issue_category: string | null;
   internal_status: string | null;
   internal_owner: string | null;
+  ticket_type: string | null;
   issue_category: string | null;
   root_cause: string | null;
   comments: string | null;
@@ -33,6 +34,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 const emptyFilters = { q: "", status: "", category: "" };
 const internalStatusOptions = ["", "New", "In Review", "Waiting On Vendor", "Blocked", "Closed"];
+const ticketTypeOptions = ["", "Support", "Incremental Improvement"];
 const issueCategoryOptions = [
   "",
   "User Experience",
@@ -226,7 +228,9 @@ function App() {
   const [message, setMessage] = useState<string>("");
   const [messageType, setMessageType] = useState<"success" | "error" | "info">("info");
   const openTickets = tickets.filter((ticket) => normalizeStatus(ticket.vendor_status) !== "closed").length;
-  const enrichedTickets = tickets.filter((ticket) => ticket.issue_category || ticket.internal_status || ticket.comments).length;
+  const enrichedTickets = tickets.filter(
+    (ticket) => ticket.issue_category || ticket.internal_status || ticket.ticket_type || ticket.comments,
+  ).length;
 
   async function loadTickets(nextFilters = filters) {
     setLoading(true);
@@ -329,6 +333,7 @@ function App() {
       body: JSON.stringify({
         internal_status: selectedTicket.internal_status,
         internal_owner: selectedTicket.internal_owner,
+        ticket_type: selectedTicket.ticket_type,
         issue_category: selectedTicket.issue_category,
         root_cause: selectedTicket.root_cause,
         comments: selectedTicket.comments,
@@ -583,6 +588,16 @@ function App() {
                   value={selectedTicket.internal_owner ?? ""}
                   onChange={(event) => updateSelected("internal_owner", event.target.value)}
                 />
+              </label>
+              <label>
+                Ticket Type
+                <select value={selectedTicket.ticket_type ?? ""} onChange={(event) => updateSelected("ticket_type", event.target.value)}>
+                  {ticketTypeOptions.map((option) => (
+                    <option key={option || "blank"} value={option}>
+                      {option || "Select ticket type"}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label>
                 Issue Category

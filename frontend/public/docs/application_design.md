@@ -130,6 +130,7 @@ Role:
 
 - `internal_status`
 - `internal_owner`
+- `ticket_type`
 - `issue_category`
 - `root_cause`
 - `comments`

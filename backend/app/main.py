@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from .database import Base, engine, get_db
+from .database import Base, engine, ensure_ticket_schema, get_db
 from .models import Ticket
 from .schemas import ImportSummary, TicketRead, TicketUpdate
 from .services.exports import build_excel_report
@@ -15,6 +15,7 @@ from .services.imports import merge_csv
 
 
 Base.metadata.create_all(bind=engine)
+ensure_ticket_schema()
 
 app = FastAPI(title="PLM Ticket Manager")
 

@@ -127,6 +127,7 @@ This means:
 
 - upload the latest vendor CSV before starting a review cycle
 - use consistent internal status values
+- classify each ticket as either `Support` or `Incremental Improvement`
 - use comments for context that would help management or later reviewers
 - avoid putting temporary notes into root cause if they belong in comments
 
