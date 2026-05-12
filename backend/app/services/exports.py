@@ -246,6 +246,46 @@ def add_bar_chart(
     sheet.add_chart(chart, anchor_cell)
 
 
+def add_stacked_bar_chart(
+    sheet,
+    anchor_cell: str,
+    start_col: int,
+    header_row: int,
+    data_rows: int,
+    series_count: int,
+    title: str,
+    x_axis_title: str,
+    y_axis_title: str,
+) -> None:
+    if data_rows < 1 or series_count < 1:
+        return
+
+    chart = BarChart()
+    chart.type = "col"
+    chart.grouping = "stacked"
+    chart.overlap = 100
+    chart.style = 10
+    chart.height = 7
+    chart.width = 10
+    chart.title = title
+    chart.x_axis.title = x_axis_title
+    chart.y_axis.title = y_axis_title
+    chart.dataLabels = DataLabelList()
+    chart.dataLabels.showVal = True
+
+    labels = Reference(sheet, min_col=start_col, min_row=header_row + 1, max_row=header_row + data_rows)
+    data = Reference(
+        sheet,
+        min_col=start_col + 1,
+        max_col=start_col + series_count,
+        min_row=header_row,
+        max_row=header_row + data_rows,
+    )
+    chart.add_data(data, titles_from_data=True)
+    chart.set_categories(labels)
+    sheet.add_chart(chart, anchor_cell)
+
+
 def write_summary_sheet(workbook: Workbook, tickets: list[Ticket]) -> None:
     sheet = workbook.create_sheet("Summary & Reporting")
     add_sheet_branding(sheet, "Summary & Reporting")
@@ -282,6 +322,20 @@ def write_summary_sheet(workbook: Workbook, tickets: list[Ticket]) -> None:
     top_owner_rows = sorted(owner_counts.items(), key=lambda item: (-item[1], item[0]))[:8]
     status_rows = sorted(vendor_status_counts.items(), key=lambda item: (-item[1], item[0]))
     ticket_type_rows = sorted(ticket_type_counts.items(), key=lambda item: (-item[1], item[0]))
+    ticket_types_for_chart = [ticket_type for ticket_type in ("Support", "Incremental Improvement", "Unspecified") if ticket_type_counts.get(ticket_type)]
+    status_by_type_rows = []
+    for status, _ in status_rows:
+        row = [status]
+        for ticket_type in ticket_types_for_chart:
+            row.append(
+                sum(
+                    1
+                    for ticket in tickets
+                    if ((ticket.vendor_status or "Unspecified").strip() or "Unspecified") == status
+                    and ((ticket.ticket_type or "Unspecified").strip() or "Unspecified") == ticket_type
+                )
+            )
+        status_by_type_rows.append(tuple(row))
 
     header_row, data_rows = write_summary_table(
         sheet,
@@ -341,14 +395,42 @@ def write_summary_sheet(workbook: Workbook, tickets: list[Ticket]) -> None:
         sheet,
         start_row=66,
         start_col=8,
+        title="Vendor Status By Ticket Type",
+        headers=["Vendor Status", *ticket_types_for_chart],
+        rows=status_by_type_rows,
+    )
+    add_stacked_bar_chart(
+        sheet,
+        "A66",
+        8,
+        header_row,
+        data_rows,
+        len(ticket_types_for_chart),
+        "Vendor Status By Ticket Type",
+        "Vendor Status",
+        "Tickets",
+    )
+    write_explanation_block(
+        sheet,
+        start_row=75,
+        start_col=1,
+        summary="Shows each vendor status split between support tickets and incremental improvement tickets.",
+        source="Combined `vendor_status` values from the vendor feed and internal `ticket_type` values.",
+        message="Use this to see whether open or recurring vendor statuses are mostly support demand or enhancement work.",
+    )
+
+    header_row, data_rows = write_summary_table(
+        sheet,
+        start_row=84,
+        start_col=8,
         title="Internal Owner Allocation",
         headers=["Internal Owner", "Count"],
         rows=[(owner, count) for owner, count in top_owner_rows],
     )
-    add_bar_chart(sheet, "A66", 8, header_row, data_rows, "Internal Owner Allocation", "Internal Owner", "Tickets")
+    add_bar_chart(sheet, "A84", 8, header_row, data_rows, "Internal Owner Allocation", "Internal Owner", "Tickets")
     write_explanation_block(
         sheet,
-        start_row=75,
+        start_row=93,
         start_col=1,
         summary="Shows which internal owners are attached to the most tickets.",
         source="`internal_owner` values entered in the ticket detail form.",

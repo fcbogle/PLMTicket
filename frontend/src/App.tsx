@@ -486,13 +486,14 @@ function App() {
             <h2>Tickets</h2>
             <span>{loading ? "Loading..." : `${tickets.length} records`}</span>
           </div>
-          <table>
+          <table className="tickets-table">
             <thead>
               <tr>
                 <th>Ticket</th>
                 <th>Subject</th>
                 <th>Vendor Status</th>
                 <th>Internal Status</th>
+                <th>Ticket Type</th>
                 <th>Vendor Category</th>
               </tr>
             </thead>
@@ -511,6 +512,7 @@ function App() {
                   <td>
                     <span className={`pill pill-${statusTone(ticket.internal_status)}`}>{ticket.internal_status ?? "n/a"}</span>
                   </td>
+                  <td>{ticket.ticket_type ?? "n/a"}</td>
                   <td>
                     <span className={`pill pill-${categoryTone(ticket.vendor_issue_category)}`}>
                       {ticket.vendor_issue_category ?? "n/a"}

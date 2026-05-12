@@ -349,6 +349,10 @@ table {
   border-collapse: collapse;
 }
 
+.tickets-table {
+  table-layout: fixed;
+}
+
 th,
 td {
   text-align: left;
@@ -362,6 +366,26 @@ th {
   font-size: 0.78rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.tickets-table th,
+.tickets-table td {
+  padding: 0.65rem 0.45rem;
+  font-size: 0.84rem;
+}
+
+.tickets-table th {
+  font-size: 0.7rem;
+}
+
+.tickets-table td {
+  overflow-wrap: anywhere;
+}
+
+.tickets-table .pill {
+  min-height: 24px;
+  padding: 0.16rem 0.5rem;
+  font-size: 0.72rem;
 }
 
 tbody tr {
