@@ -64,7 +64,28 @@ def parse_date(value: object) -> datetime | None:
     text = clean_text(value)
     if text is None:
         return None
-    parsed = pd.to_datetime(text, dayfirst=True, errors="coerce")
+
+    iso_match = re.fullmatch(r"\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?", text)
+    if iso_match:
+        parsed = pd.to_datetime(text, format="mixed", errors="coerce")
+        if pd.isna(parsed):
+            return None
+        return parsed.to_pydatetime()
+
+    slash_match = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{2,4})(?:\s+(.*))?", text)
+    if slash_match:
+        first = int(slash_match.group(1))
+        second = int(slash_match.group(2))
+        if first > 12:
+            parsed = pd.to_datetime(text, dayfirst=True, errors="coerce")
+        elif second > 12:
+            parsed = pd.to_datetime(text, dayfirst=False, errors="coerce")
+        else:
+            # Vendor CSVs currently appear to use month-first for ambiguous slash dates.
+            parsed = pd.to_datetime(text, dayfirst=False, errors="coerce")
+    else:
+        parsed = pd.to_datetime(text, dayfirst=True, errors="coerce")
+
     if pd.isna(parsed):
         return None
     return parsed.to_pydatetime()
