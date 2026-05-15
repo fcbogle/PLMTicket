@@ -6,6 +6,7 @@ type Ticket = {
   vendor_subject: string | null;
   vendor_from_name: string | null;
   vendor_status: string | null;
+  vendor_last_updated: string | null;
   vendor_created_date: string | null;
   vendor_closed_date: string | null;
   vendor_agent_assigned: string | null;
@@ -231,6 +232,12 @@ function App() {
   const enrichedTickets = tickets.filter(
     (ticket) => ticket.issue_category || ticket.internal_status || ticket.ticket_type || ticket.comments,
   ).length;
+  const latestVendorUpdate = tickets.reduce<string | null>((latest, ticket) => {
+    const candidate = ticket.vendor_last_updated ?? ticket.vendor_created_date;
+    if (!candidate) return latest;
+    if (!latest) return candidate;
+    return new Date(candidate).getTime() > new Date(latest).getTime() ? candidate : latest;
+  }, null);
 
   async function loadTickets(nextFilters = filters) {
     setLoading(true);
@@ -428,6 +435,10 @@ function App() {
           <div className="stat-card">
             <span className="stat-label">Enriched Tickets</span>
             <strong>{enrichedTickets}</strong>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Latest CSV Update</span>
+            <strong>{formatDate(latestVendorUpdate)}</strong>
           </div>
         </div>
       </section>

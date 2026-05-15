@@ -5,7 +5,7 @@ from io import BytesIO
 from pathlib import Path
 
 from openpyxl import Workbook
-from openpyxl.chart import BarChart, PieChart, Reference
+from openpyxl.chart import BarChart, LineChart, PieChart, Reference
 from openpyxl.chart.label import DataLabelList
 from openpyxl.drawing.image import Image
 from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
@@ -62,6 +62,14 @@ def is_open_ticket(ticket: Ticket) -> bool:
 
 def is_workshop_required(ticket: Ticket) -> bool:
     return (ticket.issue_category or "").strip().lower() == "workshop required"
+
+
+def is_support_ticket(ticket: Ticket) -> bool:
+    return (ticket.ticket_type or "").strip().lower() == "support"
+
+
+def is_incremental_improvement_ticket(ticket: Ticket) -> bool:
+    return (ticket.ticket_type or "").strip().lower() == "incremental improvement"
 
 
 def format_cell_value(value: object) -> object:
@@ -223,6 +231,7 @@ def add_bar_chart(
     title: str,
     x_axis_title: str,
     y_axis_title: str,
+    y_axis_major_unit: float | None = None,
 ) -> None:
     if data_rows < 1:
         return
@@ -235,6 +244,9 @@ def add_bar_chart(
     chart.title = title
     chart.x_axis.title = x_axis_title
     chart.y_axis.title = y_axis_title
+    chart.y_axis.scaling.min = 0
+    if y_axis_major_unit is not None:
+        chart.y_axis.majorUnit = y_axis_major_unit
     chart.legend = None
     chart.dataLabels = DataLabelList()
     chart.dataLabels.showVal = True
@@ -253,6 +265,7 @@ def add_stacked_bar_chart(
     header_row: int,
     data_rows: int,
     series_count: int,
+    total_col_offset: int | None,
     title: str,
     x_axis_title: str,
     y_axis_title: str,
@@ -283,17 +296,46 @@ def add_stacked_bar_chart(
     )
     chart.add_data(data, titles_from_data=True)
     chart.set_categories(labels)
+
+    if total_col_offset is not None:
+        total_chart = LineChart()
+        total_chart.y_axis.axId = 200
+        total_chart.y_axis.title = y_axis_title
+        total_chart.legend = None
+        total_chart.height = 7
+        total_chart.width = 10
+
+        total_data = Reference(
+            sheet,
+            min_col=start_col + total_col_offset,
+            max_col=start_col + total_col_offset,
+            min_row=header_row,
+            max_row=header_row + data_rows,
+        )
+        total_chart.add_data(total_data, titles_from_data=True)
+        total_chart.set_categories(labels)
+        total_chart.y_axis.crosses = "max"
+        total_chart.x_axis.delete = False
+
+        chart += total_chart
+
     sheet.add_chart(chart, anchor_cell)
 
 
 def write_summary_sheet(workbook: Workbook, tickets: list[Ticket]) -> None:
-    sheet = workbook.create_sheet("Summary & Reporting")
-    add_sheet_branding(sheet, "Summary & Reporting")
+    sheet = workbook.create_sheet("Executive Summary")
+    add_sheet_branding(sheet, "Executive Summary")
     sheet.freeze_panes = "A4"
     sheet.sheet_view.showGridLines = False
 
     total_tickets = len(tickets)
     open_tickets = sum(1 for ticket in tickets if is_open_ticket(ticket))
+    support_tickets = sum(1 for ticket in tickets if is_support_ticket(ticket))
+    improvement_tickets = sum(1 for ticket in tickets if is_incremental_improvement_ticket(ticket))
+    open_support_tickets = sum(1 for ticket in tickets if is_open_ticket(ticket) and is_support_ticket(ticket))
+    open_improvement_tickets = sum(
+        1 for ticket in tickets if is_open_ticket(ticket) and is_incremental_improvement_ticket(ticket)
+    )
     workshop_tickets = sum(1 for ticket in tickets if is_workshop_required(ticket))
     enriched_tickets = sum(
         1 for ticket in tickets if ticket.issue_category or ticket.internal_status or ticket.ticket_type or ticket.comments
@@ -303,14 +345,18 @@ def write_summary_sheet(workbook: Workbook, tickets: list[Ticket]) -> None:
     write_metric_card(sheet, 4, 3, "Open Tickets", open_tickets)
     write_metric_card(sheet, 4, 5, "Workshop Required", workshop_tickets)
     write_metric_card(sheet, 4, 7, "Enriched Tickets", enriched_tickets)
+    write_metric_card(sheet, 7, 1, "Support Tickets", support_tickets)
+    write_metric_card(sheet, 7, 3, "Improvement Tickets", improvement_tickets)
+    write_metric_card(sheet, 7, 5, "Open Support", open_support_tickets)
+    write_metric_card(sheet, 7, 7, "Open Improvement", open_improvement_tickets)
 
     write_explanation_block(
         sheet,
-        start_row=7,
+        start_row=10,
         start_col=1,
-        summary="Overview of current ticket distribution and enrichment coverage.",
+        summary="Executive overview of ticket volume, open workload, and the split between support demand and improvement work.",
         source="All records currently stored in the PLM Ticket Manager database.",
-        message="Use this sheet as the management summary tab before moving into detailed ticket tabs.",
+        message="Use this sheet as the primary leadership summary before moving into detailed ticket tabs.",
     )
 
     vendor_status_counts = Counter((ticket.vendor_status or "Unspecified").strip() or "Unspecified" for ticket in tickets)
@@ -326,29 +372,31 @@ def write_summary_sheet(workbook: Workbook, tickets: list[Ticket]) -> None:
     status_by_type_rows = []
     for status, _ in status_rows:
         row = [status]
+        row_total = 0
         for ticket_type in ticket_types_for_chart:
-            row.append(
-                sum(
-                    1
-                    for ticket in tickets
-                    if ((ticket.vendor_status or "Unspecified").strip() or "Unspecified") == status
-                    and ((ticket.ticket_type or "Unspecified").strip() or "Unspecified") == ticket_type
-                )
+            count = sum(
+                1
+                for ticket in tickets
+                if ((ticket.vendor_status or "Unspecified").strip() or "Unspecified") == status
+                and ((ticket.ticket_type or "Unspecified").strip() or "Unspecified") == ticket_type
             )
+            row.append(count)
+            row_total += count
+        row.append(row_total)
         status_by_type_rows.append(tuple(row))
 
     header_row, data_rows = write_summary_table(
         sheet,
-        start_row=12,
+        start_row=15,
         start_col=8,
         title="Vendor Status Breakdown",
         headers=["Status", "Count"],
         rows=[(status, count) for status, count in status_rows],
     )
-    add_pie_chart(sheet, "A12", 8, header_row, data_rows, "Vendor Status Distribution")
+    add_pie_chart(sheet, "A15", 8, header_row, data_rows, "Vendor Status Distribution")
     write_explanation_block(
         sheet,
-        start_row=21,
+        start_row=24,
         start_col=1,
         summary="Shows how the vendor currently classifies ticket state.",
         source="`vendor_status` values from imported supplier records.",
@@ -357,16 +405,16 @@ def write_summary_sheet(workbook: Workbook, tickets: list[Ticket]) -> None:
 
     header_row, data_rows = write_summary_table(
         sheet,
-        start_row=30,
+        start_row=33,
         start_col=8,
         title="Internal Issue Categories",
         headers=["Issue Category", "Count"],
         rows=[(category, count) for category, count in top_issue_rows],
     )
-    add_bar_chart(sheet, "A30", 8, header_row, data_rows, "Internal Issue Categories", "Issue Category", "Tickets")
+    add_bar_chart(sheet, "A33", 8, header_row, data_rows, "Internal Issue Categories", "Issue Category", "Tickets")
     write_explanation_block(
         sheet,
-        start_row=39,
+        start_row=42,
         start_col=1,
         summary="Summarises how tickets are being classified internally.",
         source="`issue_category` values entered by Blatchford users.",
@@ -375,44 +423,45 @@ def write_summary_sheet(workbook: Workbook, tickets: list[Ticket]) -> None:
 
     header_row, data_rows = write_summary_table(
         sheet,
-        start_row=48,
+        start_row=51,
         start_col=8,
         title="Ticket Type Breakdown",
         headers=["Ticket Type", "Count"],
         rows=[(ticket_type, count) for ticket_type, count in ticket_type_rows],
     )
-    add_bar_chart(sheet, "A48", 8, header_row, data_rows, "Ticket Type Breakdown", "Ticket Type", "Tickets")
+    add_bar_chart(sheet, "A51", 8, header_row, data_rows, "Ticket Type Breakdown", "Ticket Type", "Tickets", 10)
     write_explanation_block(
         sheet,
-        start_row=57,
+        start_row=60,
         start_col=1,
-        summary="Shows whether tickets are being classified as support work or incremental improvement work.",
+        summary=f"Shows whether tickets are being classified as support work or incremental improvement work. Total tickets: {total_tickets}.",
         source="`ticket_type` values entered by Blatchford users.",
-        message="Use this view to distinguish true support demand from enhancement-oriented requests.",
+        message="Use this view to distinguish true support demand from enhancement-oriented requests. The chart axes show ticket type against ticket count, and the labels show the numeric values.",
     )
 
     header_row, data_rows = write_summary_table(
         sheet,
-        start_row=66,
+        start_row=69,
         start_col=8,
         title="Vendor Status By Ticket Type",
-        headers=["Vendor Status", *ticket_types_for_chart],
+        headers=["Vendor Status", *ticket_types_for_chart, "Total"],
         rows=status_by_type_rows,
     )
     add_stacked_bar_chart(
         sheet,
-        "A66",
+        "A69",
         8,
         header_row,
         data_rows,
         len(ticket_types_for_chart),
+        len(ticket_types_for_chart) + 1,
         "Vendor Status By Ticket Type",
         "Vendor Status",
         "Tickets",
     )
     write_explanation_block(
         sheet,
-        start_row=75,
+        start_row=78,
         start_col=1,
         summary="Shows each vendor status split between support tickets and incremental improvement tickets.",
         source="Combined `vendor_status` values from the vendor feed and internal `ticket_type` values.",
@@ -421,16 +470,16 @@ def write_summary_sheet(workbook: Workbook, tickets: list[Ticket]) -> None:
 
     header_row, data_rows = write_summary_table(
         sheet,
-        start_row=84,
+        start_row=87,
         start_col=8,
         title="Internal Owner Allocation",
         headers=["Internal Owner", "Count"],
         rows=[(owner, count) for owner, count in top_owner_rows],
     )
-    add_bar_chart(sheet, "A84", 8, header_row, data_rows, "Internal Owner Allocation", "Internal Owner", "Tickets")
+    add_bar_chart(sheet, "A87", 8, header_row, data_rows, "Internal Owner Allocation", "Internal Owner", "Tickets")
     write_explanation_block(
         sheet,
-        start_row=93,
+        start_row=96,
         start_col=1,
         summary="Shows which internal owners are attached to the most tickets.",
         source="`internal_owner` values entered in the ticket detail form.",
@@ -449,10 +498,10 @@ def build_excel_report(db: Session) -> bytes:
     workbook = Workbook()
     workbook.remove(workbook.active)
 
+    write_summary_sheet(workbook, tickets)
     write_sheet(workbook, "All Tickets", tickets)
     write_sheet(workbook, "Open Tickets", [ticket for ticket in tickets if is_open_ticket(ticket)])
     write_sheet(workbook, "Workshop Required", [ticket for ticket in tickets if is_workshop_required(ticket)])
-    write_summary_sheet(workbook, tickets)
     workbook.active = 0
 
     output = BytesIO()

@@ -3,6 +3,7 @@ from pathlib import Path
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import NullPool
 
 
 DEFAULT_SQLITE_PATH = Path(__file__).resolve().parents[1] / "plm_tickets.db"
@@ -14,7 +15,12 @@ Base = declarative_base()
 
 engine_kwargs: dict[str, object] = {}
 if DATABASE_URL.startswith("sqlite"):
-    engine_kwargs["connect_args"] = {"check_same_thread": False}
+    engine_kwargs["connect_args"] = {
+        "check_same_thread": False,
+        "timeout": int(os.getenv("PLM_SQLITE_BUSY_TIMEOUT_SECONDS", "30")),
+    }
+    # A mounted SQLite file on Azure File Share is less stable with pooled connections.
+    engine_kwargs["poolclass"] = NullPool
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
