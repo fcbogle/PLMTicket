@@ -24,6 +24,7 @@ type ImportSummary = {
   updated: number;
   failed: number;
   errors: string[];
+  warnings: string[];
 };
 
 type DocLink = {
@@ -320,8 +321,13 @@ function App() {
     }
 
     const summary = data as ImportSummary;
-    setMessageType("success");
-    setMessage(`Imported ${summary.new} new, updated ${summary.updated}, failed ${summary.failed}.`);
+    setMessageType(summary.warnings.length ? "info" : "success");
+    setMessage(
+      [
+        `Imported ${summary.new} new, updated ${summary.updated}, failed ${summary.failed}.`,
+        ...summary.warnings,
+      ].join(" "),
+    );
     await loadTickets();
     setLoading(false);
   }

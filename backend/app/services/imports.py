@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from html import unescape
 from io import BytesIO
 import re
@@ -43,6 +43,7 @@ DATE_COLUMNS = {
 
 BOOL_COLUMNS = {"vendor_overdue"}
 REQUIRED_COLUMNS = {"ticket_number", "date_created", "subject", "current_status"}
+FUTURE_DATE_WARNING_THRESHOLD_DAYS = 7
 
 
 def normalize_header(value: str) -> str:
@@ -120,6 +121,9 @@ def merge_csv(db: Session, contents: bytes) -> ImportSummary:
     updated = 0
     failed = 0
     errors: list[str] = []
+    warnings: list[str] = []
+    future_date_examples: list[str] = []
+    future_threshold = datetime.now() + timedelta(days=FUTURE_DATE_WARNING_THRESHOLD_DAYS)
 
     for row_index, row in dataframe.iterrows():
         try:
@@ -143,6 +147,11 @@ def merge_csv(db: Session, contents: bytes) -> ImportSummary:
 
             payload["vendor_description"] = payload.get("vendor_subject")
 
+            for field_name in ("vendor_created_date", "vendor_last_updated", "vendor_closed_date"):
+                value = payload.get(field_name)
+                if isinstance(value, datetime) and value > future_threshold and len(future_date_examples) < 5:
+                    future_date_examples.append(f"{ticket_id}:{field_name}={value.isoformat(sep=' ')}")
+
             existing = db.query(Ticket).filter(Ticket.vendor_ticket_id == ticket_id).one_or_none()
             if existing is None:
                 db.add(Ticket(**payload))
@@ -156,4 +165,9 @@ def merge_csv(db: Session, contents: bytes) -> ImportSummary:
             errors.append(f"Row {row_index + 2}: {exc}")
 
     db.commit()
-    return ImportSummary(new=created, updated=updated, failed=failed, errors=errors)
+    if future_date_examples:
+        warnings.append(
+            "Suspicious future vendor dates detected after import. Sample values: "
+            + ", ".join(future_date_examples)
+        )
+    return ImportSummary(new=created, updated=updated, failed=failed, errors=errors, warnings=warnings)

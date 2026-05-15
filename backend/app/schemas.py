@@ -53,3 +53,4 @@ class ImportSummary(BaseModel):
     updated: int
     failed: int
     errors: list[str]
+    warnings: list[str] = []
